@@ -1,0 +1,192 @@
+ .MODEL SMALL
+.STACK 100h
+
+.DATA
+title       db '=== Login System ===',0Dh,0Ah,'$'
+askPass     db 0Dh,0Ah,'Enter Password: $'
+wrongPass   db 0Dh,0Ah,'Wrong password! Attempts left: $'
+lockedMsg   db 0Dh,0Ah,'*** SYSTEM LOCKED! ***$'
+successMsg  db 0Dh,0Ah,'Access Granted!$'
+goodbyeMsg  db 0Dh,0Ah,'Good Bye!$'
+
+menuMsg     db 0Dh,0Ah,'=== MENU ===',0Dh,0Ah
+            db '1) Change Password',0Dh,0Ah
+            db '2) Exit',0Dh,0Ah,'Choose: $'
+
+showQ       db 0Dh,0Ah,'Show password? (y/n): $'
+newMsg      db 0Dh,0Ah,'Enter New Password: $'
+savedMsg    db 0Dh,0Ah,'Password Updated!$'
+
+password    db '1234',0
+buf         db 20 dup(0)
+attempts    db 3
+
+.CODE
+MAIN PROC
+    mov ax,@data
+    mov ds,ax
+
+Login:
+    cmp attempts,0
+    je Locked
+    mov dx,offset askPass
+    mov ah,9
+    int 21h
+
+    call ReadStr
+
+    mov si,offset password
+    mov di,offset buf
+Chk:
+    mov al,[si]
+    cmp al,[di]
+    jne Wrong
+    cmp al,0
+    je Ok
+    inc si
+    inc di
+    jmp Chk
+
+Wrong:
+    dec attempts
+    mov dx,offset wrongPass
+    mov ah,9
+    int 21h
+
+    mov dl,attempts
+    add dl,'0'
+    mov ah,2
+    int 21h
+    jmp Login
+
+Ok:
+    mov dx,offset successMsg
+    mov ah,9
+    int 21h
+    call Menu
+    jmp Exit
+
+Locked:
+    mov dx,offset lockedMsg
+    mov ah,9
+    int 21h
+
+Exit:
+    mov dx,offset goodbyeMsg
+    mov ah,9
+    int 21h
+    mov ax,4C00h
+    int 21h
+MAIN ENDP
+
+; ===================
+; ReadStr (hidden)
+; ===================
+ReadStr PROC
+    mov si,0
+R1:
+    mov ah,8
+    int 21h
+    cmp al,0Dh
+    je R2
+
+    mov [buf+si],al
+    mov dl,'*'
+    mov ah,2
+    int 21h
+    inc si
+    jmp R1
+
+R2:
+    mov byte ptr [buf+si],0
+    ret
+ReadStr ENDP
+
+; ================
+; Print zero-string
+; ================
+PrintStr PROC
+ push ax
+ push dx
+
+P1:
+    mov al,[di]
+    cmp al,0
+    je P2
+    mov dl,al
+    mov ah,2
+    int 21h
+    inc di
+    jmp P1
+P2:
+    pop dx
+   pop ax
+
+    ret
+PrintStr ENDP
+
+; ====================
+; MAIN MENU
+; ====================
+Menu PROC
+M1:
+    mov dx,offset menuMsg
+    mov ah,9
+    int 21h
+
+    mov ah,1
+    int 21h
+    cmp al,'1'
+    je ChPass
+    cmp al,'2'
+    je Out
+    jmp M1
+
+ChPass:
+    mov dx,offset newMsg
+    mov ah,9
+    int 21h
+    call ReadStr
+
+    mov dx,offset showQ
+    mov ah,9
+    int 21h
+
+    mov ah,1
+    int 21h
+    cmp al,'y'
+    jne Save
+
+    ; print CRLF
+    mov dl,0Dh
+    mov ah,2
+    int 21h
+    mov dl,0Ah
+    mov ah,2
+    int 21h
+
+    lea di,buf
+    call PrintStr
+
+Save:
+    lea si,password
+    lea di,buf
+S1:
+    mov al,[di]
+    mov [si],al
+    cmp al,0
+    je S2
+    inc si
+    inc di
+    jmp S1
+S2:
+    mov dx,offset savedMsg
+    mov ah,9
+    int 21h
+    jmp M1
+
+Out:
+    ret
+Menu ENDP
+
+END MAIN
